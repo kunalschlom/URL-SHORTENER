@@ -29,10 +29,9 @@ async def test_create_url_success():
     repo = MagicMock(spec=URLRepository)
     repo.get_by_short_code = AsyncMock(return_value=None)
     repo.create = AsyncMock(return_value=URL(original_url="https://google.com", short_code="abcde1"))
-
     service = URLService(repository=repo)
     url = await service.create_url("https://google.com")
-    
+  
     assert url is not None
     repo.create.assert_called_once()
 

@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = "123"
     DB_NAME: str = "url_shortener"
 
+    # Redis Settings
+    # In Docker, this gets overridden to redis://redis:6379 via environment variable
+    REDIS_URL: str = "redis://localhost:6379"
+
+    # How long (in seconds) a hot link stays cached in Redis before we refresh it
+    CACHE_TTL_SECONDS: int = 300  # 5 minutes
+
     @classmethod
     def settings_customise_sources(
         cls,

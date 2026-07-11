@@ -16,5 +16,4 @@ class URLResponse(URLBase):
     short_code: str
     created_at: datetime
     click_count: int
-
     model_config = ConfigDict(from_attributes=True)
