@@ -33,7 +33,7 @@ export const URLList: React.FC<URLListProps> = ({ urls, onDelete }) => {
             </tr>
           ) : (
             urls.map((url) => {
-              const shortUrl = `http://localhost:8000/${url.short_code}`;
+              const shortUrl = `http://localhost/${url.short_code}`;
               return (
                 <tr key={url.id} style={{ borderBottom: "1px solid #eee" }}>
                   <td style={{ padding: "0.5rem", maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

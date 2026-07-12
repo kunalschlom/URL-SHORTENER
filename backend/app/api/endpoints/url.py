@@ -1,4 +1,3 @@
-from typing import Sequence
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -34,8 +33,7 @@ async def get_urls(
     limit: int = 100,
     service: URLService = Depends(get_url_service),
 ):
-    urls = await service.get_all_urls(skip=skip, limit=limit)
-    return urls
+    return await service.get_all_urls_with_live_counts(skip=skip, limit=limit)
 
 
 @api_router.delete("/urls/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -52,7 +50,7 @@ async def health_check():
 
 @router.get("/{short_code}")
 async def redirect_to_url(short_code: str, service: URLService = Depends(get_url_service)):
-    url = await service.redirect_lookup(short_code)
-    if not url:
+    original_url = await service.redirect_lookup(short_code)
+    if not original_url:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Short URL not found")
-    return RedirectResponse(url=url.original_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    return RedirectResponse(url=original_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)

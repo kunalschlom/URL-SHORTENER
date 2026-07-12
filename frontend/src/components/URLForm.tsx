@@ -17,7 +17,7 @@ export const URLForm: React.FC<URLFormProps> = ({ onURLShortened }) => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/shorten", {
+      const response = await fetch("/api/v1/shorten", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -31,7 +31,7 @@ export const URLForm: React.FC<URLFormProps> = ({ onURLShortened }) => {
       }
 
       const data = await response.json();
-      setShortenedUrl(`http://localhost:8000/${data.short_code}`);
+      setShortenedUrl(`http://localhost/${data.short_code}`);
       setOriginalUrl("");
       onURLShortened();
     } catch (err: any) {

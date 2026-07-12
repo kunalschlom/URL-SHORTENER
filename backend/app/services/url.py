@@ -1,5 +1,4 @@
 import secrets
-from typing import Sequence
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -15,7 +14,7 @@ BASE62_CHARACTERS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 # The Redis key format for a cached short code
 # Example: "url:abc123" -> "https://google.com"
 CACHE_KEY_PREFIX = "url:"
-
+CACHE_COUNTER_PREFIX = "clicks:"
 
 class URLService:
     def __init__(self, repository: URLRepository, redis: aioredis.Redis):
@@ -50,13 +49,11 @@ class URLService:
             if not existing:
                 short_code = candidate
                 break
-
         if not short_code:
             raise RuntimeError("Failed to generate a unique short code after several attempts")
-
         return await self.repository.create(original_url=original_url, short_code=short_code)
 
-    async def redirect_lookup(self, short_code: str) -> URL | None:
+    async def redirect_lookup(self, short_code: str) -> str | None:
         """
         HOT LINK CACHING — Cache-aside pattern:
         1. Check Redis first (very fast, in-memory lookup)
@@ -64,7 +61,7 @@ class URLService:
         3. Cache MISS → go to DB, cache the result for next time, update click_count
         """
         cache_key = CACHE_KEY_PREFIX + short_code
-
+        counter_key = CACHE_COUNTER_PREFIX + short_code
         # Step 1: Check Redis cache
         cached_original_url = await self.redis.get(cache_key)
 
@@ -73,11 +70,8 @@ class URLService:
             # We already know where to redirect without touching the DB.
             # We still need to hit the DB just for the click_count increment,
             # but the expensive "find this URL" lookup is skipped on hot links.
-            url = await self.repository.get_by_short_code(short_code)
-            if url:
-                url.click_count += 1
-                await self.repository.save(url)
-            return url
+            await self.redis.incr(counter_key)
+            return cached_original_url
 
         # --- Cache MISS ---
         # Step 2: Not in cache, go to the database
@@ -91,22 +85,44 @@ class URLService:
             url.original_url,
             ex=settings.CACHE_TTL_SECONDS,  # Auto-expires after N seconds (default 5 min)
         )
-
-        # Increment click count in DB
-        url.click_count += 1
-        await self.repository.save(url)
-
-        return url
+        await self.redis.incr(counter_key)
 
 
-    async def get_all_urls(self, skip: int = 0, limit: int = 100) -> Sequence[URL]:
-        return await self.repository.get_all(skip=skip, limit=limit)
+        return url.original_url
+
+
+    async def get_all_urls_with_live_counts(self, skip: int = 0, limit: int = 100) -> list[dict]:
+        """
+        Returns all URLs with click counts read live from Redis.
+        Uses a single MGET to fetch all counters in one round-trip.
+        Falls back to the DB value (0) for any URL not yet in Redis.
+        """
+        urls = await self.repository.get_all(skip=skip, limit=limit)
+        if not urls:
+            return []
+
+        # One network call to Redis instead of N individual GETs
+        counter_keys = [CACHE_COUNTER_PREFIX + url.short_code for url in urls]
+        redis_counts = await self.redis.mget(*counter_keys)
+
+        result = []
+        for url, redis_count in zip(urls, redis_counts):
+            result.append({
+                "id": url.id,
+                "original_url": url.original_url,
+                "short_code": url.short_code,
+                "created_at": url.created_at,
+                # Redis count wins; fall back to DB value if key doesn't exist yet
+                "click_count": int(redis_count) if redis_count is not None else url.click_count,
+            })
+        return result
 
     async def delete_url(self, short_code: str) -> bool:
         deleted = await self.repository.delete(short_code)
         if deleted:
             # Remove from cache too, so stale data doesn't linger
             await self.redis.delete(CACHE_KEY_PREFIX + short_code)
+            await self.redis.delete(CACHE_COUNTER_PREFIX + short_code)
         return deleted
 
     async def delete_url_by_id(self, id: UUID) -> bool:
@@ -121,5 +137,6 @@ class URLService:
         if deleted:
             # Remove from cache so stale data doesn't linger
             await self.redis.delete(CACHE_KEY_PREFIX + short_code)
+            await self.redis.delete(CACHE_COUNTER_PREFIX + short_code)
 
         return deleted

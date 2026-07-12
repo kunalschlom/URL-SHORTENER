@@ -15,7 +15,7 @@ function App() {
 
   const fetchUrls = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/v1/urls");
+      const response = await fetch("/api/v1/urls");
       if (!response.ok) {
         throw new Error("Failed to fetch URLs");
       }
@@ -28,7 +28,7 @@ function App() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/urls/${id}`, {
+      const response = await fetch(`/api/v1/urls/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
