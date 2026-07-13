@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # Database Settings
-    DB_HOST: str = "db"
+    DB_HOST: str = "localhost"
     DB_PORT: int = 5432
     DB_USER: str = "postgres"
     DB_PASSWORD: str = "123"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Redis Settings
     # In Docker, this gets overridden to redis://redis:6379 via environment variable
-    REDIS_URL: str = "redis://redis:6379"
+    REDIS_URL: str = "redis://localhost:6379"
 
     # How long (in seconds) a hot link stays cached in Redis before we refresh it
     CACHE_TTL_SECONDS: int = 300  # 5 minutes
